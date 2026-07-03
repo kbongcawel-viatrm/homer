@@ -9,19 +9,19 @@ jobs:
       - self-hosted
       - archlinux
 
-    env:
-        HOME_DIR: /home/kbongcawel822/.arch-user/
-        CONTAINER_DIR: container
-        GIT_DIR: homer
+    #env:
+    #   HOME_DIR: /home/kbongcawel822/.arch-user/
+    #   CONTAINER_DIR: container
+    #   GIT_DIR: homer
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          path: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
+        #with:
+        #  path: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
 
       - name: Run commands
-        working-directory: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
+        #working-directory: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
         run: |
               git status
               docker --version
@@ -33,10 +33,10 @@ jobs:
 
       - name: Ensure config directory exists
         run: |
-          mkdir -p "${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}/config"
+          mkdir -p "${{ github.workspace }}/config"
           
       - name: Run Homer container
-        working-directory: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
+        #working-directory: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
         run: |
           docker run -d \
             --name homer \
@@ -45,16 +45,19 @@ jobs:
             -e UID=1000 \
             -e GID=1000 \
             -e INIT_ASSETS=1 \
-            -e SUBFOLDER=null \
             -e PORT=8080 \
             -e IPV6_DISABLE=1 \
             --restart=unless-stopped \
             b4bz/homer:latest
 
-      - name: Verify docker logs
-        working-directory: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
+      - name: Verify container
         run: |
-          docker exec homer env | grep -E 'UID|GID|INIT_ASSETS|SUBFOLDER|PORT|IPV6_DISABLE'
-          docker logs homer | head -n 20
-          docker logs homer | tail -n 20
-          echo "Done..."
+          sleep 5
+          docker ps -a --filter name=homer
+          docker inspect -f 'Status: {{.State.Status}}' homer
+          docker inspect homer --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'UID|GID|INIT_ASSETS|SUBFOLDER|PORT|IPV6_DISABLE'
+          echo "=== Logs ==="
+          docker logs homer
+          echo "=== Mounted assets ==="
+          ls -lah "${{ github.workspace }}/config"
+          echo "Done."
