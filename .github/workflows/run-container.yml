@@ -1,0 +1,45 @@
+name: Run Homer Docker
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-homer:
+    runs-on:
+      - self-hosted
+      - archlinux
+
+    env:
+        HOME_DIR: /home/kbongcawel822/.arch-user/
+        CONTAINER_DIR: container
+        GIT_DIR: homer
+        
+    steps:
+      - name: Move to home directory
+        run: |
+          cd $HOME_DIR
+          if [[ ! -d $CONTAINER_DIR ]]; then
+             mkdir ${HOME_DIR}/${CONTAINER_DIR}
+             mkdir ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
+             cd ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
+          fi
+          
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Stop and remove existing Homer container (if any)
+        run: |
+          docker rm -f homer || true
+
+      - name: Ensure config directory exists
+        run: |
+          mkdir -p "${{ github.workspace }}/config"
+          
+      - name: Run Homer container
+        run: |
+          docker run -d \
+            --name homer \
+            -p 8080:8080 \
+            --mount type=bind,source="${{ github.workspace }}/config",target=/www/assets \
+            --restart=unless-stopped \
+            b4bz/homer:latest
