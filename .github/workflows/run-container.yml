@@ -13,33 +13,48 @@ jobs:
         HOME_DIR: /home/kbongcawel822/.arch-user/
         CONTAINER_DIR: container
         GIT_DIR: homer
-        
+
     steps:
-      - name: Move to home directory
-        run: |
-          cd $HOME_DIR
-          if [[ ! -d $CONTAINER_DIR ]]; then
-             mkdir ${HOME_DIR}/${CONTAINER_DIR}
-             mkdir ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
-             cd ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
-          fi
-          
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          path: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
 
+      - name: Run commands
+        working-directory: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
+        run: |
+              git status
+              docker --version
+              git --version
+          
       - name: Stop and remove existing Homer container (if any)
         run: |
           docker rm -f homer || true
 
       - name: Ensure config directory exists
         run: |
-          mkdir -p "${{ github.workspace }}/config"
+          mkdir -p "${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}/config"
           
       - name: Run Homer container
+        working-directory: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
         run: |
           docker run -d \
             --name homer \
             -p 8080:8080 \
             --mount type=bind,source="${{ github.workspace }}/config",target=/www/assets \
+            -e UID=1000 \
+            -e GID=1000 \
+            -e INIT_ASSETS=1 \
+            -e SUBFOLDER=null \
+            -e PORT=8080 \
+            -e IPV6_DISABLE=1 \
             --restart=unless-stopped \
             b4bz/homer:latest
+
+      - name: Verify docker logs
+        working-directory: ${HOME_DIR}/${CONTAINER_DIR}/${GIT_DIR}
+        run: |
+          docker exec homer env | grep -E 'UID|GID|INIT_ASSETS|SUBFOLDER|PORT|IPV6_DISABLE'
+          docker logs homer | head -n 20
+          docker logs homer | tail -n 20
+          echo "Done..."
